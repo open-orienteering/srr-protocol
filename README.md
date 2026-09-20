@@ -23,8 +23,8 @@ starts with the ASCII magic `siok`, a 32-bit sender ID, and a type byte:
 `0xB6` for punches relayed by a station, `0xB7` for punches sent by a SIAC.
 The receiver must **acknowledge** each frame within about a millisecond by
 echoing the sender ID inside a fixed 13-byte ACK, or the transmitter
-retries. Transmitters send every punch on red and then, ~30 ms later, on
-blue.
+retries: up to six transmissions alternating blue/red/blue/red/blue/red,
+~30 ms apart.
 
 ## Contents
 

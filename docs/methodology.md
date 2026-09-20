@@ -157,8 +157,8 @@ most of the hours went, and where the interesting engineering lessons are:
 * **Interrupts made it worse.** A carrier-sense interrupt for noise
   measurement disturbed SPI timing on the same core enough to miss the ACK
   window. Everything moved to polling in `loop()`.
-* **Two channels.** Transmitters send red then blue about 30 ms apart. The
-  receiver measures how long carrier sense is asserted per second, and if
+* **Two channels.** Transmitters alternate between blue and red, about
+  30 ms apart, up to six times until acknowledged. The receiver measures how long carrier sense is asserted per second, and if
   the channel is saturated (typically Wi-Fi — both SRR channels sit on Wi-Fi
   channel centres) it hops to the other one. This was tested by running a
   second CC2500 as an interference source on one channel at a time.

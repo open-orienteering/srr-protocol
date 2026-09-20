@@ -180,14 +180,19 @@ not from any specification, and should be treated as approximate.
   practice the receiver has to have the ACK in the CC2500 TX FIFO and
   strobed within a few hundred microseconds of the end-of-packet signal.
   Parsing, printing, or anything else has to wait until after the ACK.
-* **Red then blue ("double tap").** A SIAC transmits the punch on red, waits
-  about 30 ms, and transmits it again on blue. Whether the blue transmission
-  is skipped when the red one was ACKed has not been established (see
-  [open-questions.md](open-questions.md)).
-* **Retransmission.** Un-ACKed records are retried. The interval and the
-  number of retries are not known. SPORTident's station configuration offers
-  "send last record" / "send all unsent records" / "send all card contents",
-  so stations at least keep an unsent queue.
+* **Six transmissions, alternating channels.** ✅ Without an ACK, a punch
+  is transmitted six times, alternating between the channels: blue, red,
+  blue, red, blue, red — three attempts per channel. An ACK stops the
+  sequence. Consecutive transmissions are roughly 30 ms apart; the exact
+  spacing, and whether it is constant across the six, has not been
+  measured precisely (see [open-questions.md](open-questions.md)).
+  Consequences for a receiver: a single-channel receiver gets up to three
+  chances per punch, and the whole burst is over in well under a second.
+* **Unsent queue.** Records that were never ACKed are kept. SPORTident's
+  station configuration offers "send last record" / "send all unsent
+  records" / "send all card contents", so at least stations retry old
+  records at the next punch when configured to. Whether a SIAC retries an
+  old record later on its own has not been observed.
 * **Station vs SIAC collision.** SPORTident notes that when an SI-Card is
   punched directly and a SIAC punches contactlessly at the same station at
   the same time, the station and the SIAC transmit simultaneously and one of

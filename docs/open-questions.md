@@ -7,16 +7,18 @@ you punched with what, and open an issue with the hex dumps.
 
 ## Protocol
 
-1. **Retransmission schedule.** How long does a transmitter wait between
-   retries of an un-ACKed record, and how many times does it retry before
-   giving up? The reference receiver ACKs everything immediately, so the
-   retry pattern has never been recorded systematically. To measure it: run
-   with `ENABLE_ACK false`, `DUMP_RAW_PACKETS true`, timestamp each frame
-   with `micros()`, and punch once.
+1. **Retransmission timing.** It is known that an un-ACKed punch is sent
+   six times, alternating blue/red/blue/red/blue/red, roughly 30 ms apart.
+   Not known: the exact interval, whether it is constant, whether there is
+   jitter (to avoid two transmitters colliding repeatedly), and whether
+   stations and SIACs use the same schedule. To measure it: run with
+   `ENABLE_ACK false`, `DUMP_RAW_PACKETS true`, timestamp each frame with
+   `micros()`, and punch once on each channel.
 
-2. **Is the blue transmission conditional?** A SIAC sends red, then ~30 ms
-   later blue. Does it skip blue if red was ACKed? A receiver that hops on
-   noise depends on the answer.
+2. **Does the sequence stop immediately on ACK?** An ACK silences the
+   transmitter, but it has not been checked whether an ACK on the first
+   (blue) transmission suppresses all five remaining ones, or whether the
+   red counterpart is still sent.
 
 3. **Header bytes 8–13.** Six bytes in every frame that have not been
    decoded. Collect frames from different cards, stations and firmware

@@ -33,9 +33,11 @@
  *  3. Wide RX filter. Cheap CC2500 modules drift; 812 kHz filter bandwidth
  *     (MDMCFG4 = 0x0D) instead of the dongle's 541 kHz (0x2D) made
  *     reception reliable at the cost of some sensitivity.
- *  4. Channel hopping. Transmitters send each punch on "red" then "blue".
- *     If the current channel is saturated with noise the receiver hops to
- *     the other one. For a fixed installation, use two receivers instead.
+ *  4. Channel hopping. Without an ACK a punch is sent up to six times,
+ *     alternating blue/red/blue/red/blue/red ~30 ms apart, so a receiver on
+ *     either channel gets three chances. If the current channel is saturated
+ *     with noise the receiver hops to the other one. For a fixed
+ *     installation, use two receivers instead.
  */
 
 #include <SPI.h>
