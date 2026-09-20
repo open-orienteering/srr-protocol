@@ -113,13 +113,22 @@ responsibilities. This repository contains no punch data from real events.
 
 ## Fair play and courtesy
 
-A receiver that ACKs will stop the transmitter from retrying. That is
-harmless when it is *your* receiver at *your* control. It is not harmless
-if you switch on an ACKing receiver next to somebody else's official radio
-control: if their receiver missed a frame and yours acknowledged it, the
-retry that would have saved them never comes. Do not run an ACKing receiver
-at an event you are not organising without agreement, and consider
-`ENABLE_ACK false` when you only want to listen.
+**Do not run a receiver at an event you are not organising**, ACKing or
+not, unless the organiser has asked you to.
+
+* The punch data is broadcast so that the *organiser's* receivers can pick
+  it up. It is competitors' personal data, and the organiser is the one
+  responsible for it. Collecting it as a bystander is at best listening to
+  traffic that was not meant for you (see *Radio regulation* above on
+  Swedish disclosure rules) and at worst a GDPR problem of your own making.
+* A receiver that ACKs also actively interferes: an ACK stops the
+  transmitter's six-attempt retry sequence. If the official receiver missed
+  a frame and yours acknowledged it, the retry that would have saved them
+  never comes.
+
+The right place for this receiver is at your own club's events and on your
+own training controls. `ENABLE_ACK false` exists for bench work and
+protocol research, not as a licence to listen in.
 
 ## Other jurisdictions (briefly)
 

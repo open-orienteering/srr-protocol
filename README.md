@@ -67,7 +67,7 @@ control configured to send radio, or punch a BSF8-SRR station:
 ```
 
 Options at the top of the sketch: `ENABLE_ACK` (acknowledge frames — turn
-off to listen passively without silencing transmitters), `ENABLE_HOPPING`
+off on the bench to observe the retry sequence), `ENABLE_HOPPING`
 (hop red↔blue when the channel is saturated), `DUMP_RAW_PACKETS` (print
 every payload as hex, useful for [answering the open questions](docs/open-questions.md)),
 `STARTUP_CHANNEL`.
