@@ -21,10 +21,10 @@ SRR is TI's stock **250 kBaud MSK** CC2500 configuration on two channels:
 engine (4-byte preamble, sync `0xD391`, length byte, CRC-16). Every payload
 starts with the ASCII magic `siok`, a 32-bit sender ID, and a type byte:
 `0xB6` for punches relayed by a station, `0xB7` for punches sent by a SIAC.
-The receiver must **acknowledge** each frame within about a millisecond by
-echoing the sender ID inside a fixed 13-byte ACK, or the transmitter
-retries: up to six transmissions alternating blue/red/blue/red/blue/red,
-~30 ms apart.
+The receiver must **acknowledge** each frame by echoing the sender ID inside
+a fixed 13-byte ACK that starts 0.9–2.3 ms after the end of the frame (not
+earlier, not later), or the transmitter retries: up to six transmissions
+alternating blue/red/blue/red/blue/red over roughly half a second.
 
 ## Contents
 

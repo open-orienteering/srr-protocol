@@ -65,6 +65,29 @@ customised base frequency, so an SRR frame on the air looks like this:
 An earlier iteration of this work described the link as 38.4 kbit/s. That
 was wrong; the register values give 250 kBaud unambiguously.
 
+### Verified on air (SDR) ✅
+
+The register-derived description above was checked against the actual
+signal of a BSF8-SRR station with a HackRF (8 MS/s, October 2026):
+
+* The modulation is **plain MSK**: continuous phase, ±90° per symbol,
+  instantaneous frequency sitting at ±62.5 kHz (modulation index 0.50).
+  The CC2500's `DEVIATN = 0x01` ("phase transition over 2/8 of the symbol")
+  does not produce anything a receiver can tell apart from textbook MSK, so
+  **any GFSK/MSK-class 2.4 GHz radio that can do 250 kbit/s MSK, a 32-bit
+  sync word and a length byte interoperates**. Confirmed in both directions
+  with a TI CC2340R5 (stock SDK `msk_250_kbps` PHY: receives punches and its
+  ACKs are accepted by the station) and for TX with a Silicon Labs EFR32BG22.
+* **Bit polarity:** a data `1` is the *lower* tone. This is the CC2500's
+  documented "MSK inverts the data compared to signal generators"; on other
+  radios it is a symbol-map setting (Silicon Labs: `MAP1`).
+* Preamble `0xAA…`, sync `D3 91 D3 91`, length byte, payload, CRC-16/CMS
+  exactly as described; the sync word is sent MSB first.
+* The station's carrier was **+24 kHz** above nominal on blue (one unit,
+  room temperature) — a normal 10 ppm crystal offset, but a receiver with a
+  narrow channel filter or a tight frequency-error budget should allow for
+  ±30 kHz. Air time of a 30-byte station punch is about 1.38 ms.
+
 The red and blue channels sit 10 MHz apart, and both coincide with Wi-Fi
 channel centres (channel 11 at 2 462 MHz and channel 13 at 2 472 MHz). Nearby
 Wi-Fi traffic is therefore the main source of the "saturated channel"
@@ -88,7 +111,10 @@ payload, i.e. byte 0 is the first byte after the length byte.
 |--------|------|-------|-------|
 | 0–3 | 4 | Magic | ASCII `siok` (`73 69 6F 6B`) — present in every frame |
 | 4–7 | 4 | Link ID (big-endian) | Identity of the **sender**: station number for station frames, card number for SIAC frames. This value is echoed in the ACK. |
-| 8–13 | 6 | ❓ unknown | Not decoded. Candidates: firmware/protocol version, record counters, flags. |
+| 8–9 | 2 | ❓ unknown | `3F 03` in all frames of one BSF8-SRR station. Candidates: firmware/protocol version, flags. |
+| 10 | 1 | Transmission counter 🟡 | +1 for **every** transmission, including retries on the other colour, and running on across punches (observed `15 17 19` for the three blue frames of one punch, `1B 1D 1F` for the next — the even values went out on red). With a receiver ACKing the first (blue) frame it advances by 1 per punch (observed `FA FB FC FD FE FF 01 02` over eight punches — the step over `00` is either a skipped zero or one retry that got through). Useful to count missed frames and to confirm that an ACK was accepted. Seen on a station only. |
+| 11 | 1 | Record counter 🟡 | +1 per punch (`F7` → `F8` between two consecutive punches of the same station), constant across the retries of one punch. |
+| 12–13 | 2 | ❓ unknown | `62 6A` in all frames of one station. |
 | 14 | 1 | Frame type | `0xB6` = station-originated punch, `0xB7` = SIAC-originated punch. Other values have not been observed, but the ACK sent by receivers is a different frame (see §5). |
 
 ## 4. Punch frames
@@ -167,27 +193,55 @@ offset  0   1   2   3   4   5   6   7   8   9   10  11  12
 There is no `siok` magic in the ACK and the transmitter does not seem to
 check anything except (presumably) the echoed Link ID.
 
-Air time of the ACK is about 0.7 ms (4 + 2 + 1 + 13 + 2 bytes at 250 kBaud),
-which is why the ACK deadline in §6 is tight.
+Air time of the ACK is about 0.7 ms (4 + 2 + 1 + 13 + 2 bytes at 250 kBaud).
+The ACK window in §6 is a *window*, not just a deadline: an ACK that starts
+too early is ignored as well.
 
 ## 6. Timing and retransmission behaviour 🟡
 
-These numbers come from watching transmitters with the reference receiver,
-not from any specification, and should be treated as approximate.
+* **ACK window: first bit of the ACK 0.9 – 2.3 ms after the last bit of the
+  punch.** ✅ Measured with a TI CC2340R5 whose radio timestamps the
+  received sync word and starts the ACK at a programmable time after it
+  (station: BSF8-SRR, blue channel, 2026-10-05). With the ACK command
+  scheduled *t* after the sync word of a 33-byte-on-air punch (punch ends
+  ≈1.06 ms after sync, radio start-up ≈0.17 ms):
 
-* **ACK window ≈ 1 ms.** After the last bit of a punch frame the transmitter
-  waits roughly a millisecond for the ACK, then gives up and moves on. In
-  practice the receiver has to have the ACK in the CC2500 TX FIFO and
-  strobed within a few hundred microseconds of the end-of-packet signal.
-  Parsing, printing, or anything else has to wait until after the ACK.
-* **Six transmissions, alternating channels.** ✅ Without an ACK, a punch
-  is transmitted six times, alternating between the channels: blue, red,
-  blue, red, blue, red — three attempts per channel. An ACK stops the
-  sequence. Consecutive transmissions are roughly 30 ms apart; the exact
-  spacing, and whether it is constant across the six, has not been
-  measured precisely (see [open-questions.md](open-questions.md)).
-  Consequences for a receiver: a single-channel receiver gets up to three
-  chances per punch, and the whole burst is over in well under a second.
+  | ACK start *t* after sync | 1.65 ms | 1.75 ms | 1.8 – 3.2 ms | 4.0 ms |
+  |---|---|---|---|---|
+  | Station reaction | retries | marginal (≈50 %) | **accepted, no retry** | retries |
+
+  i.e. the ACK must begin roughly 0.9 to 2.3 ms after the end of the punch;
+  **both earlier and later ACKs are ignored.** A receiver that answers
+  "as fast as possible" from an interrupt can therefore be too *early*. The
+  ESP32/CC2500 reference lands in the window only because the CC2500's
+  IDLE→TX calibration adds ≈0.8 ms before the ACK leaves. Parsing, printing
+  or anything else has to wait until the ACK has been queued.
+* **An accepted ACK stops the whole sequence.** ✅ With a receiver ACKing on
+  blue, the station's transmission counter (header byte 10) advances by
+  exactly one per punch, so the red counterpart is not sent either.
+* **Six transmissions, alternating channels, 0.52 s in total.** ✅ Without
+  an ACK, a punch is transmitted six times, alternating between the
+  channels: blue, red, blue, red, blue, red — three attempts per channel.
+  Measured with an SDR covering both channels at once (BSF8-SRR, two punches,
+  frame start times relative to the first frame, repeatable to ±2 ms):
+
+  | # | colour | start | gap to previous |
+  |---|--------|-------|-----------------|
+  | 1 | blue | 0 ms | — |
+  | 2 | red | +34 ms | 34 ms |
+  | 3 | blue | +237 ms | 203 ms |
+  | 4 | red | +279 ms | 42 ms |
+  | 5 | blue | +357 ms | 78 ms |
+  | 6 | red | +523 ms | 166 ms |
+
+  So the "~30 ms" previously stated here is only the blue→red spacing of
+  the first pair; the pairs themselves are 240 and 120 ms apart and the last
+  red frame trails by 165 ms. The header's transmission counter (§3)
+  increments across all six. Whether SIACs use the same schedule, and
+  whether the intervals are jittered when two transmitters collide, has not
+  been checked. Consequences for a receiver: a blue-only receiver sees
+  frames at 0 / 237 / 357 ms, a red-only receiver at 34 / 279 / 523 ms; a
+  punch is complete about half a second after it happened.
 * **Unsent queue.** Records that were never ACKed are kept. SPORTident's
   station configuration offers "send last record" / "send all unsent
   records" / "send all card contents", so at least stations retry old
@@ -226,6 +280,12 @@ does the following; anything ported to another radio should do the same.
 5. Only then parse and report the frame.
 6. Optionally: measure the fraction of time carrier sense is asserted and
    hop to the other channel if the current one is saturated.
+
+On a radio that can time-stamp the sync word and schedule a transmission
+(TI CC23xx RCL, Silicon Labs RAIL, Nordic radio + timer), do not ACK "as
+soon as possible": schedule the ACK for ≈2.4 ms after the received sync word
+(≈1.3 ms after the end of a station punch), the middle of the window in §6.
+Verified on a CC2340R5: 8 of 8 punches ACKed and not retried.
 
 ## 9. Relation to the dongle's serial output
 

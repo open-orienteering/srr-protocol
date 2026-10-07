@@ -68,7 +68,10 @@ the base frequency and channel numbers. Knowing this is useful in two ways:
   preamble, 16-bit sync `0xD391`, variable length, CRC-16" can talk SRR,
   including other TI chips (CC1101 family cannot — wrong band — but CC2510,
   CC2511 and CC2500 can) and, with more effort, nRF52-class SoCs in
-  proprietary radio mode or an SDR.
+  proprietary radio mode or an SDR. Confirmed on air (protocol.md §2): the
+  TI CC2340R5 with its stock `msk_250_kbps` PHY receives punches and gets
+  its ACKs accepted; the only radio-specific details are the symbol map
+  (`1` = lower tone) and the ACK timing (§6).
 
 ## The bandwidth change (`MDMCFG4`)
 
