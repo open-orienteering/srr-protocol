@@ -157,8 +157,10 @@ most of the hours went, and where the interesting engineering lessons are:
 * **Interrupts made it worse.** A carrier-sense interrupt for noise
   measurement disturbed SPI timing on the same core enough to miss the ACK
   window. Everything moved to polling in `loop()`.
-* **Two channels.** Transmitters alternate between blue and red, about
-  30 ms apart, up to six times until acknowledged. The receiver measures how long carrier sense is asserted per second, and if
+* **Two channels.** Transmitters alternate between blue and red, up to six
+  times over about half a second until acknowledged (the "~30 ms apart"
+  first written here was a guess; see protocol.md §6 for the measured
+  schedule). The receiver measures how long carrier sense is asserted per second, and if
   the channel is saturated (typically Wi-Fi — both SRR channels sit on Wi-Fi
   channel centres) it hops to the other one. This was tested by running a
   second CC2500 as an interference source on one channel at a time.
@@ -170,10 +172,31 @@ useful at all for anything that required actually looking at the signal —
 including a confident but wrong claim that the link ran at 38.4 kbit/s,
 which survived in code comments until this repository was written.
 
+## Step 7 — Look at the signal itself
+
+Everything above was inferred from the dongle's register set and from what
+made the ESP32 receiver work. In October 2026 the air interface was checked
+directly with a HackRF One (8 MS/s, tuned 1 MHz off the channel so the DC
+spike stays clear of the signal) and a small Python analyser: burst
+detection, carrier-offset estimate from the preamble, instantaneous
+frequency and per-symbol phase steps, then a search for the sync word under
+the plausible bit-coding hypotheses (plain, inverted, differential) followed
+by a CRC check. That settled the modulation (textbook MSK, index 0.50),
+the bit polarity (`1` = lower tone) and the station's crystal offset
+(protocol.md §2). A second capture at 16 MS/s centred between the two
+channels caught the complete six-frame retry schedule on both colours at
+once (§6) — and, as a bonus, the Wi-Fi beacon sitting on the red channel
+every 102.4 ms. The ACK window was
+then measured with a second radio (TI CC2340R5) that starts its ACK at a
+programmable delay after the received sync word and a station as the judge:
+sweep the delay, watch whether the station retries. Two evenings, no new
+hardware beyond the SDR.
+
 ## What it took
 
 * Tools: phone camera, magnifier, spring-arm PCB probes, an ESP32 as a
-  SUMP logic analyser, PulseView, Arduino IDE.
+  SUMP logic analyser, PulseView, Arduino IDE; later a HackRF One with
+  numpy/scipy for the air-interface check.
 * Parts: one SRR USB dongle (opened), an ESP32 dev board, CC2500 breakout
   modules, a SIAC and SRR-capable stations to generate traffic.
 * Reading: CC2500 datasheet, MSP430F2370 datasheet, TI application note

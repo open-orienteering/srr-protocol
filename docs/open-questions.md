@@ -7,22 +7,22 @@ you punched with what, and open an issue with the hex dumps.
 
 ## Protocol
 
-1. **Retransmission timing.** It is known that an un-ACKed punch is sent
-   six times, alternating blue/red/blue/red/blue/red, roughly 30 ms apart.
-   Not known: the exact interval, whether it is constant, whether there is
-   jitter (to avoid two transmitters colliding repeatedly), and whether
-   stations and SIACs use the same schedule. To measure it: run with
-   `ENABLE_ACK false`, `DUMP_RAW_PACKETS true`, timestamp each frame with
-   `micros()`, and punch once on each channel.
+1. **Retransmission timing — answered for stations.** An un-ACKed punch is
+   sent six times, blue/red/blue/red/blue/red at 0 / 34 / 237 / 279 / 357 /
+   523 ms (protocol.md §6, SDR capture of both channels, two punches within
+   ±2 ms of each other). Still open: whether SIACs use the same schedule,
+   and whether the intervals are jittered when transmitters collide.
 
-2. **Does the sequence stop immediately on ACK?** An ACK silences the
-   transmitter, but it has not been checked whether an ACK on the first
-   (blue) transmission suppresses all five remaining ones, or whether the
-   red counterpart is still sent.
+2. **Does the sequence stop immediately on ACK? — answered: yes.** With a
+   receiver ACKing the first (blue) frame, the station's transmission
+   counter (header byte 10) advances by exactly one per punch, so none of
+   the remaining five transmissions is sent.
 
-3. **Header bytes 8–13.** Six bytes in every frame that have not been
-   decoded. Collect frames from different cards, stations and firmware
-   versions and diff them.
+3. **Header bytes 8–13 — partly answered.** Byte 10 is a transmission
+   counter and byte 11 a record counter (protocol.md §3), from one station.
+   Still open: bytes 8–9 (`3F 03`) and 12–13 (`62 6A`), and whether SIAC
+   frames use the same counters. Collect frames from different cards,
+   stations and firmware versions and diff them.
 
 4. **Byte 19 in SIAC (`0xB7`) frames.** Observed `0x07` clear, `0x1A` check,
    `0x0B` start, `0x0D` finish, `0xB2` control. Hypothesis: the low nibble is
@@ -63,6 +63,8 @@ you punched with what, and open an issue with the hex dumps.
 12. **Dongle GDO/interrupt configuration.** Not recorded; not needed for
     interoperability but would show how SPORTident's firmware paces the ACK.
 
-13. **Exact ACK deadline.** "About 1 ms" is an observation from what did and
-    did not work on the ESP32, not a measurement. A logic analyser on GDO0 of
-    two radios (one transmitting, one ACKing) would settle it.
+13. **Exact ACK deadline — answered for one station.** Measured with a radio
+    that schedules the ACK at a programmable time after the received sync
+    word (protocol.md §6): the ACK must *start* 0.9 – 2.3 ms after the end of
+    the punch; earlier and later ACKs are both ignored. Still open: whether
+    SIACs have the same window, and whether it depends on frame length.
